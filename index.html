@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ask My AI</title>
+  <style>
+    :root { --bg:#f5f6fa; --card:#ffffff; --text:#1f2430; --accent:#4f46e5; --user:#4f46e5; --bot:#eceef5; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#14161d; --card:#1d2029; --text:#eceef5; --bot:#2a2e3a; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); display:flex; justify-content:center; min-height:100vh; }
+    .app { width:100%; max-width:700px; display:flex; flex-direction:column; height:100vh; padding:16px; }
+    header { padding:8px 4px 16px; }
+    h1 { margin:0; font-size:1.5rem; }
+    header p { margin:4px 0 0; opacity:.7; }
+    #chat { flex:1; overflow-y:auto; background:var(--card); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:10px; }
+    .msg { max-width:85%; padding:10px 14px; border-radius:14px; line-height:1.45; white-space:pre-wrap; word-wrap:break-word; }
+    .user { align-self:flex-end; background:var(--user); color:#fff; border-bottom-right-radius:4px; }
+    .bot { align-self:flex-start; background:var(--bot); border-bottom-left-radius:4px; }
+    form { display:flex; gap:8px; margin-top:12px; }
+    input { flex:1; padding:12px 14px; border-radius:12px; border:1px solid #c9cde0; font-size:1rem; background:var(--card); color:var(--text); }
+    button { padding:12px 20px; border:0; border-radius:12px; background:var(--accent); color:#fff; font-size:1rem; cursor:pointer; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    footer { text-align:center; font-size:.8rem; opacity:.6; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <!-- CHANGE THESE TWO LINES to name your site -->
+      <h1>Ask My AI</h1>
+      <p>Ask me anything and I'll do my best to help.</p>
+    </header>
+
+    <div id="chat">
+      <div class="msg bot">Hi! What would you like to know?</div>
+    </div>
+
+    <form id="form">
+      <input id="input" type="text" placeholder="Type your question..." maxlength="1000" autocomplete="off" required />
+      <button id="send" type="submit">Send</button>
+    </form>
+    <footer>AI can make mistakes. Double-check important information.</footer>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+    const history = []; // keeps the conversation so the AI remembers context
+
+    function addMessage(text, who) {
+      const div = document.createElement("div");
+      div.className = "msg " + who;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage(text, "user");
+      history.push({ role: "user", content: text });
+      input.value = "";
+      sendBtn.disabled = true;
+      const thinking = addMessage("Thinking...", "bot");
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Something went wrong.");
+        thinking.textContent = data.reply;
+        history.push({ role: "assistant", content: data.reply });
+      } catch (err) {
+        thinking.textContent = "Sorry, something went wrong: " + err.message;
+        history.pop(); // remove the failed question so the chat stays valid
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
